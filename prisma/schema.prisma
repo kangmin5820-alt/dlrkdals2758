@@ -1,0 +1,90 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Member {
+  id        Int      @id @default(autoincrement())
+  name      String
+  phone     String?  // 선택 사항
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 기본 정보
+  heightCm            Float? // 키
+  weightKg            Float? // 현재 체중
+  goalWeightKg        Float? // 목표 체중
+  bodyFatPct          Float? // 현재 체지방률
+  goalBodyFatPct      Float? // 목표 체지방률
+  skeletalMuscleKg    Float? // 현재 골격근량
+  goalSkeletalMuscleKg Float? // 목표 골격근량
+
+  // 생활 패턴
+  sleepHours    Float? // 수면시간
+  job           String? // 직업
+  exerciseLevel String? // 운동경험 (초보/중급/상급)
+  smoking       String? // 흡연 여부/빈도
+  drinking      String? // 음주 여부/빈도
+
+  memo String? // 상세메모
+
+  inbodyRecords InbodyRecord[]
+  sessions      PTSession[]
+}
+
+model InbodyRecord {
+  id        Int      @id @default(autoincrement())
+  member    Member   @relation(fields: [memberId], references: [id])
+  memberId Int
+  date      DateTime
+  imageUrl  String   // 인바디 사진 경로
+  createdAt DateTime @default(now())
+}
+
+model PTSession {
+  id            Int       @id @default(autoincrement())
+  member        Member    @relation(fields: [memberId], references: [id])
+  memberId      Int
+  sessionNumber Int       // PT 1회, 2회, 3회...
+  date          DateTime
+
+  note     String? // 오늘의 메모
+  homework String? // 오늘의 과제(숙제)
+
+  createdAt DateTime @default(now())
+
+  exercises Exercise[]
+}
+
+model Exercise {
+  id        Int       @id @default(autoincrement())
+  session   PTSession @relation(fields: [sessionId], references: [id])
+  sessionId Int
+
+  name     String  // 운동 종목 이름 (예: 스쿼트)
+  order    Int     // PT 세션 내에서 운동 순서
+  feedback String? // 이 운동에 대한 피드백
+
+  sets ExerciseSet[]
+}
+
+model ExerciseSet {
+  id        Int      @id @default(autoincrement())
+  exercise  Exercise @relation(fields: [exerciseId], references: [id])
+  exerciseId Int
+
+  setNumber Int     // 1세트, 2세트...
+  weightKg  Float?  // 무게
+  reps      Int?    // 횟수
+  rir       Int?    // RIR (Reps In Reserve)
+  record    String? // 기록
+  volume    Float?  // 블륨 (Volume)
+  restSec   Int?    // 휴식(초)
+  memo      String? // 메모
+}
+
