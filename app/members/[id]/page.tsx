@@ -4,6 +4,10 @@ import Link from 'next/link';
 import MemberTabs from './MemberTabs';
 import DeleteMemberButton from './DeleteMemberButton';
 
+// 동적 렌더링 강제 (빌드 시 정적 생성 방지)
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function MemberDetailPage({
   params,
 }: {

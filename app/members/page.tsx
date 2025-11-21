@@ -3,6 +3,10 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import LogoutButton from '@/app/components/LogoutButton';
 
+// 동적 렌더링 강제
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 async function MembersList({ searchQuery }: { searchQuery?: string }) {
   const members = await prisma.member.findMany({
     where: searchQuery
