@@ -6,6 +6,16 @@ export function middleware(request: NextRequest) {
   const isAuthenticated = authCookie?.value === 'authenticated';
   const pathname = request.nextUrl.pathname;
   const isLoginPage = pathname === '/login';
+  const isRootPage = pathname === '/';
+
+  // 루트 페이지 처리
+  if (isRootPage) {
+    if (isAuthenticated) {
+      return NextResponse.redirect(new URL('/members', request.url));
+    } else {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+  }
 
   // 로그인 페이지에 이미 인증된 사용자가 접근하면 회원 목록으로 리다이렉트
   if (isLoginPage && isAuthenticated) {
@@ -33,6 +43,7 @@ export const config = {
      * - public 폴더의 파일들
      * - .ico, .png, .jpg, .jpeg, .gif, .svg 등 이미지 파일
      */
+    '/',
     '/((?!api|_next/static|_next/image|_next/webpack-hmr|favicon.ico|.*\\.(?:ico|png|jpg|jpeg|gif|svg|webp|woff|woff2|ttf|eot)).*)',
   ],
 };

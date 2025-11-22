@@ -8,11 +8,15 @@ import {
   deleteExercise,
   deleteExerciseSet,
 } from './actions';
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function ExerciseCard({ exercise }: { exercise: any }) {
   const [showFeedback, setShowFeedback] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   return (
     <div className="bg-[#111111] rounded p-2 mb-2 border border-[#1a1a1a]">
@@ -20,8 +24,20 @@ export default function ExerciseCard({ exercise }: { exercise: any }) {
       <div className="flex items-center gap-2 mb-2">
         {isEditingName ? (
           <form
-            action={updateExerciseName.bind(null, exercise.id)}
-            onSubmit={() => setIsEditingName(false)}
+            onSubmit={(e) => {
+              e.preventDefault();
+              setError(null);
+              const formData = new FormData(e.currentTarget);
+              startTransition(async () => {
+                try {
+                  await updateExerciseName(exercise.id, formData);
+                  setIsEditingName(false);
+                  router.refresh();
+                } catch (err: any) {
+                  setError(err.message || '운동 이름을 저장하는 중 오류가 발생했습니다.');
+                }
+              });
+            }}
             className="flex-1"
           >
             <input
@@ -29,8 +45,13 @@ export default function ExerciseCard({ exercise }: { exercise: any }) {
               name="name"
               defaultValue={exercise.name}
               autoFocus
-              className="px-2 py-1 bg-[#0a0a0a] border border-[#1a1a1a] rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 flex-1 text-white text-xs transition-all"
-              onBlur={() => setIsEditingName(false)}
+              disabled={isPending}
+              className="px-2 py-1 bg-[#0a0a0a] border border-[#1a1a1a] rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 flex-1 text-white text-xs transition-all disabled:opacity-50"
+              onBlur={() => {
+                if (!isPending) {
+                  setIsEditingName(false);
+                }
+              }}
             />
           </form>
         ) : (
@@ -45,27 +66,53 @@ export default function ExerciseCard({ exercise }: { exercise: any }) {
         <div className="flex gap-1.5">
           <button
             onClick={() => setShowFeedback(!showFeedback)}
-            className="px-2 py-1 bg-[#1a1a1a] text-gray-300 rounded hover:bg-[#2a2a2a] transition text-xs font-medium"
+            disabled={isPending}
+            className="px-2 py-1 bg-[#1a1a1a] text-gray-300 rounded hover:bg-[#2a2a2a] transition text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
             피드백
           </button>
-          <form action={addExerciseSet.bind(null, exercise.id)}>
-            <button
-              type="submit"
-              className="px-2 py-1 bg-white/10 hover:bg-white/20 text-white rounded transition-colors text-xs font-semibold border border-white/10"
-            >
-              + 세트
-            </button>
-          </form>
-          <form action={deleteExercise.bind(null, exercise.id)}>
-            <button
-              type="submit"
-              className="px-2 py-1 bg-[#1a0a0a] hover:bg-[#2a0a0a] text-gray-400 hover:text-gray-300 rounded transition-colors text-xs font-semibold border border-[#2a1a1a]"
-            >
-              삭제
-            </button>
-          </form>
+          <button
+            type="button"
+            onClick={() => {
+              setError(null);
+              startTransition(async () => {
+                try {
+                  await addExerciseSet(exercise.id, new FormData());
+                  router.refresh();
+                } catch (err: any) {
+                  setError(err.message || '세트를 추가하는 중 오류가 발생했습니다.');
+                }
+              });
+            }}
+            disabled={isPending}
+            className="px-2 py-1 bg-white/10 hover:bg-white/20 text-white rounded transition-colors text-xs font-semibold border border-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isPending ? '처리 중...' : '+ 세트'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm('이 운동을 삭제하시겠습니까?')) {
+                setError(null);
+                startTransition(async () => {
+                  try {
+                    await deleteExercise(exercise.id);
+                    router.refresh();
+                  } catch (err: any) {
+                    setError(err.message || '운동을 삭제하는 중 오류가 발생했습니다.');
+                  }
+                });
+              }
+            }}
+            disabled={isPending}
+            className="px-2 py-1 bg-[#1a0a0a] hover:bg-[#2a0a0a] text-gray-400 hover:text-gray-300 rounded transition-colors text-xs font-semibold border border-[#2a1a1a] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isPending ? '처리 중...' : '삭제'}
+          </button>
         </div>
+        {error && (
+          <p className="text-red-400 text-xs mt-1">{error}</p>
+        )}
       </div>
 
       {/* 피드백 섹션 */}
@@ -86,7 +133,22 @@ export default function ExerciseCard({ exercise }: { exercise: any }) {
             </div>
           )}
           {showFeedback && (
-            <form action={updateExerciseFeedback.bind(null, exercise.id)}>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                setError(null);
+                const formData = new FormData(e.currentTarget);
+                startTransition(async () => {
+                  try {
+                    await updateExerciseFeedback(exercise.id, formData);
+                    setShowFeedback(false);
+                    router.refresh();
+                  } catch (err: any) {
+                    setError(err.message || '피드백을 저장하는 중 오류가 발생했습니다.');
+                  }
+                });
+              }}
+            >
               <textarea
                 name="feedback"
                 rows={2}
@@ -97,19 +159,27 @@ export default function ExerciseCard({ exercise }: { exercise: any }) {
               <div className="mt-2 flex justify-end gap-1.5">
                 <button
                   type="button"
-                  onClick={() => setShowFeedback(false)}
-                  className="px-3 py-1 bg-[#1a1a1a] text-gray-300 rounded hover:bg-[#2a2a2a] transition-colors text-xs font-semibold"
+                  onClick={() => {
+                    setShowFeedback(false);
+                    setError(null);
+                  }}
+                  disabled={isPending}
+                  className="px-3 py-1 bg-[#1a1a1a] text-gray-300 rounded hover:bg-[#2a2a2a] transition-colors text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   취소
                 </button>
                 <button
                   type="submit"
-                  className="bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded transition-colors text-xs font-semibold border border-white/10"
+                  disabled={isPending}
+                  className="bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded transition-colors text-xs font-semibold border border-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ pointerEvents: 'auto' }}
                 >
-                  저장
+                  {isPending ? '저장 중...' : '저장'}
                 </button>
               </div>
+              {error && (
+                <p className="text-red-400 text-xs mt-1">{error}</p>
+              )}
             </form>
           )}
         </div>
@@ -163,6 +233,10 @@ export default function ExerciseCard({ exercise }: { exercise: any }) {
 }
 
 function SetRow({ set }: { set: any }) {
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
   const getRowInputs = (row: HTMLElement) => {
     return row.querySelectorAll<HTMLInputElement>(
       'input[type="number"]:not([type="hidden"]), input[type="text"]:not([type="hidden"])'
@@ -251,14 +325,25 @@ function SetRow({ set }: { set: any }) {
       }
     }
 
-    form.requestSubmit();
+    // 서버 액션 호출
+    setError(null);
+    const formData = new FormData(form);
+    startTransition(async () => {
+      try {
+        await updateExerciseSet(set.id, formData);
+        router.refresh();
+      } catch (err: any) {
+        setError(err.message || '세트 정보를 저장하는 중 오류가 발생했습니다.');
+      }
+    });
   };
 
   return (
-    <tr className="hover:bg-[#111111] transition-colors">
+    <>
+      <tr className="hover:bg-[#111111] transition-colors">
       <td className="px-2 py-1 text-xs font-semibold text-gray-400">{set.setNumber}세트</td>
       <td className="px-2 py-1">
-        <form action={updateExerciseSet.bind(null, set.id)} className="inline">
+        <form className="inline">
           <input
             type="number"
             step="0.1"
@@ -275,7 +360,7 @@ function SetRow({ set }: { set: any }) {
         </form>
       </td>
       <td className="px-2 py-1">
-        <form action={updateExerciseSet.bind(null, set.id)} className="inline">
+        <form className="inline">
           <input
             type="number"
             name="reps"
@@ -291,7 +376,7 @@ function SetRow({ set }: { set: any }) {
         </form>
       </td>
       <td className="px-2 py-1">
-        <form action={updateExerciseSet.bind(null, set.id)} className="inline">
+        <form className="inline">
           <input
             type="number"
             name="rir"
@@ -306,7 +391,7 @@ function SetRow({ set }: { set: any }) {
         </form>
       </td>
       <td className="px-2 py-1">
-        <form action={updateExerciseSet.bind(null, set.id)} className="inline">
+        <form className="inline">
           <input
             type="number"
             step="0.1"
@@ -322,7 +407,7 @@ function SetRow({ set }: { set: any }) {
         </form>
       </td>
       <td className="px-2 py-1">
-        <form action={updateExerciseSet.bind(null, set.id)} className="inline">
+        <form className="inline">
           <input
             type="number"
             name="restSec"
@@ -337,15 +422,35 @@ function SetRow({ set }: { set: any }) {
         </form>
       </td>
       <td className="px-2 py-1">
-        <form action={deleteExerciseSet.bind(null, set.id)}>
-          <button
-            type="submit"
-            className="text-gray-500 hover:text-gray-400 transition-colors text-xs px-1.5 py-1"
-          >
-            삭제
-          </button>
-        </form>
+        <button
+          type="button"
+          onClick={() => {
+            if (confirm('이 세트를 삭제하시겠습니까?')) {
+              setError(null);
+              startTransition(async () => {
+                try {
+                  await deleteExerciseSet(set.id);
+                  router.refresh();
+                } catch (err: any) {
+                  setError(err.message || '세트를 삭제하는 중 오류가 발생했습니다.');
+                }
+              });
+            }
+          }}
+          disabled={isPending}
+          className="text-gray-500 hover:text-gray-400 transition-colors text-xs px-1.5 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isPending ? '처리 중...' : '삭제'}
+        </button>
       </td>
     </tr>
+    {error && (
+      <tr>
+        <td colSpan={7} className="px-2 py-1">
+          <p className="text-red-400 text-xs">{error}</p>
+        </td>
+      </tr>
+    )}
+    </>
   );
 }

@@ -1,7 +1,8 @@
 'use client';
 
 import { deletePTSession } from '@/app/members/[id]/actions';
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function DeleteSessionButton({
   sessionId,
@@ -11,14 +12,19 @@ export default function DeleteSessionButton({
   sessionNumber: number;
 }) {
   const [showModal, setShowModal] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   function handleDelete() {
-    setIsDeleting(true);
-    deletePTSession(sessionId).catch((error) => {
-      console.error('삭제 오류:', error);
-      alert('PT 세션 삭제 중 오류가 발생했습니다.');
-      setIsDeleting(false);
+    setError(null);
+    startTransition(async () => {
+      try {
+        await deletePTSession(sessionId);
+        router.refresh();
+      } catch (err: any) {
+        setError(err.message || 'PT 세션 삭제 중 오류가 발생했습니다.');
+      }
     });
   }
 
@@ -46,21 +52,29 @@ export default function DeleteSessionButton({
             <p className="text-sm text-gray-500 mb-6">
               이 작업은 되돌릴 수 없습니다. 해당 세션의 모든 운동 기록과 세트 정보가 함께 삭제됩니다.
             </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setShowModal(false)}
-                disabled={isDeleting}
-                className="px-5 py-2 border border-[#1a1a1a] rounded-lg text-gray-400 hover:bg-[#1a1a1a] transition disabled:opacity-50 text-sm font-medium"
-              >
-                취소
-              </button>
-              <button
-                onClick={handleDelete}
-                disabled={isDeleting}
-                className="px-5 py-2 bg-[#1a0a0a] hover:bg-[#2a0a0a] text-gray-300 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium border border-[#2a1a1a]"
-              >
-                {isDeleting ? '삭제 중...' : '삭제'}
-              </button>
+            <div>
+              <div className="flex gap-3 justify-end mb-2">
+                <button
+                  onClick={() => {
+                    setShowModal(false);
+                    setError(null);
+                  }}
+                  disabled={isPending}
+                  className="px-5 py-2 border border-[#1a1a1a] rounded-lg text-gray-400 hover:bg-[#1a1a1a] transition disabled:opacity-50 text-sm font-medium"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleDelete}
+                  disabled={isPending}
+                  className="px-5 py-2 bg-[#1a0a0a] hover:bg-[#2a0a0a] text-gray-300 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium border border-[#2a1a1a]"
+                >
+                  {isPending ? '삭제 중...' : '삭제'}
+                </button>
+              </div>
+              {error && (
+                <p className="text-red-400 text-xs text-right mt-2">{error}</p>
+              )}
             </div>
           </div>
         </div>

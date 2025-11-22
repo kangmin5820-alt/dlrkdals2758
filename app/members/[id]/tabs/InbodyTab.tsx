@@ -2,7 +2,8 @@
 
 import { addInbodyRecord } from '@/app/members/[id]/actions';
 import { Member, InbodyRecord } from '@prisma/client';
-import { useState } from 'react';
+import { useState, useTransition, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 
 type MemberWithInbody = Member & {
   inbodyRecords: InbodyRecord[];
@@ -11,6 +12,9 @@ type MemberWithInbody = Member & {
 export default function InbodyTab({ member }: { member: MemberWithInbody }) {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+  const formRef = useRef<HTMLFormElement>(null);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -62,12 +66,21 @@ export default function InbodyTab({ member }: { member: MemberWithInbody }) {
     recordFormData.append('date', formData.get('date') as string);
     recordFormData.append('imageUrl', imageUrl);
 
-    addInbodyRecord(member.id, recordFormData).then(() => {
-      window.location.reload();
-    }).catch((error) => {
-      console.error('기록 추가 오류:', error);
-      setUploadError('인바디 기록 추가 중 오류가 발생했습니다.');
-      setUploading(false);
+    setUploading(true);
+    startTransition(async () => {
+      try {
+        await addInbodyRecord(member.id, recordFormData);
+        // 폼 리셋
+        if (formRef.current) {
+          formRef.current.reset();
+        }
+        router.refresh();
+      } catch (error: any) {
+        console.error('기록 추가 오류:', error);
+        setUploadError(error.message || '인바디 기록 추가 중 오류가 발생했습니다.');
+      } finally {
+        setUploading(false);
+      }
     });
   }
 
@@ -75,7 +88,7 @@ export default function InbodyTab({ member }: { member: MemberWithInbody }) {
     <div className="space-y-3">
       <div>
         <h3 className="text-sm font-bold text-white mb-2">인바디 기록 추가</h3>
-        <form onSubmit={handleSubmit} className="bg-[#111111] p-3 rounded border border-[#1a1a1a]">
+        <form ref={formRef} onSubmit={handleSubmit} className="bg-[#111111] p-3 rounded border border-[#1a1a1a]">
           <div className="grid grid-cols-2 gap-3 mb-3">
             <div>
               <label className="block text-xs font-semibold text-gray-400 mb-1">
@@ -120,10 +133,10 @@ export default function InbodyTab({ member }: { member: MemberWithInbody }) {
 
           <button
             type="submit"
-            disabled={uploading}
+            disabled={uploading || isPending}
             className="bg-white/10 hover:bg-white/20 text-white px-4 py-1.5 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-xs font-semibold border border-white/10"
           >
-            {uploading ? '업로드 중...' : '추가'}
+            {uploading || isPending ? '처리 중...' : '추가'}
           </button>
         </form>
       </div>

@@ -3,6 +3,8 @@
 import { createPTSession } from '@/app/members/[id]/actions';
 import { Member, PTSession } from '@prisma/client';
 import Link from 'next/link';
+import { useTransition, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import DeleteSessionButton from './DeleteSessionButton';
 
 type SessionWithDetails = PTSession & {
@@ -33,19 +35,40 @@ export default function PTSessionTab({
 }: {
   member: MemberWithSessions;
 }) {
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  function handleCreateSession() {
+    setError(null);
+    startTransition(async () => {
+      try {
+        await createPTSession(member.id);
+        router.refresh();
+      } catch (err: any) {
+        setError(err.message || '새 세션을 생성하는 중 오류가 발생했습니다.');
+      }
+    });
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex justify-between items-center">
         <h3 className="text-sm font-bold text-white">PT 세션 목록</h3>
-        <form action={createPTSession.bind(null, member.id)}>
+        <div>
           <button
-            type="submit"
-            className="bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded transition-colors cursor-pointer font-semibold text-xs border border-white/10"
+            type="button"
+            onClick={handleCreateSession}
+            disabled={isPending}
+            className="bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded transition-colors cursor-pointer font-semibold text-xs border border-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ pointerEvents: 'auto' }}
           >
-            + 새 세션
+            {isPending ? '처리 중...' : '+ 새 세션'}
           </button>
-        </form>
+          {error && (
+            <p className="text-red-400 text-xs mt-1">{error}</p>
+          )}
+        </div>
       </div>
 
       {member.sessions.length === 0 ? (

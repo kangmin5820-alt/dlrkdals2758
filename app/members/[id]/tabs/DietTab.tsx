@@ -19,6 +19,7 @@ export default function DietTab({
   const [editingMealId, setEditingMealId] = useState<number | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   const editingMeal = editingMealId
@@ -53,22 +54,27 @@ export default function DietTab({
         {showAddForm && (
           <div className="mb-3 p-3 bg-[#111111] border border-[#1a1a1a] rounded">
             <form
-              action={editingMealId
-                ? async (formData: FormData) => {
-                    startTransition(async () => {
+              onSubmit={(e) => {
+                e.preventDefault();
+                setError(null);
+                const formData = new FormData(e.currentTarget);
+                startTransition(async () => {
+                  try {
+                    if (editingMealId) {
                       await updateMeal(editingMealId, memberId, formData);
                       setShowAddForm(false);
                       setEditingMealId(null);
                       router.refresh();
-                    });
-                  }
-                : async (formData: FormData) => {
-                    startTransition(async () => {
+                    } else {
                       await addMeal(memberId, formData);
                       setShowAddForm(false);
                       router.refresh();
-                    });
-                  }}
+                    }
+                  } catch (err: any) {
+                    setError(err.message || '식사를 저장하는 중 오류가 발생했습니다.');
+                  }
+                });
+              }}
               className="space-y-2"
             >
               <div>
@@ -159,13 +165,18 @@ export default function DietTab({
                   onClick={() => {
                     setShowAddForm(false);
                     setEditingMealId(null);
+                    setError(null);
                   }}
-                  className="bg-[#1a1a1a] hover:bg-[#2a2a2a] text-gray-400 px-3 py-1.5 rounded text-xs font-semibold transition-colors cursor-pointer"
+                  disabled={isPending}
+                  className="bg-[#1a1a1a] hover:bg-[#2a2a2a] text-gray-400 px-3 py-1.5 rounded text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ pointerEvents: 'auto', position: 'relative', zIndex: 10 }}
                 >
                   취소
                 </button>
               </div>
+              {error && (
+                <p className="text-red-400 text-xs mt-1">{error}</p>
+              )}
             </form>
           </div>
         )}
@@ -231,16 +242,22 @@ export default function DietTab({
                           type="button"
                           onClick={() => {
                             if (confirm('이 식사를 삭제하시겠습니까?')) {
+                              setError(null);
                               startTransition(async () => {
-                                await deleteMeal(meal.id, memberId);
-                                router.refresh();
+                                try {
+                                  await deleteMeal(meal.id, memberId);
+                                  router.refresh();
+                                } catch (err: any) {
+                                  setError(err.message || '식사를 삭제하는 중 오류가 발생했습니다.');
+                                }
                               });
                             }
                           }}
-                          className="text-red-400 hover:text-red-300 transition-colors cursor-pointer"
+                          disabled={isPending}
+                          className="text-red-400 hover:text-red-300 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                           style={{ pointerEvents: 'auto', position: 'relative', zIndex: 10 }}
                         >
-                          삭제
+                          {isPending ? '처리 중...' : '삭제'}
                         </button>
                       </div>
                     </td>
@@ -277,10 +294,17 @@ export default function DietTab({
       <div className="mt-4 pt-4 border-t border-[#1a1a1a]">
         <h3 className="text-sm font-semibold text-white mb-2">식단 가이드라인 메모</h3>
         <form 
-          action={async (formData: FormData) => {
+          onSubmit={(e) => {
+            e.preventDefault();
+            setError(null);
+            const formData = new FormData(e.currentTarget);
             startTransition(async () => {
-              await updateDietGuideMemo(memberId, formData);
-              router.refresh();
+              try {
+                await updateDietGuideMemo(memberId, formData);
+                router.refresh();
+              } catch (err: any) {
+                setError(err.message || '메모를 저장하는 중 오류가 발생했습니다.');
+              }
             });
           }}
           style={{ pointerEvents: 'auto' }}
@@ -301,6 +325,9 @@ export default function DietTab({
             >
               {isPending ? '저장 중...' : '메모 저장'}
             </button>
+            {error && (
+              <p className="text-red-400 text-xs mt-1">{error}</p>
+            )}
           </div>
         </form>
       </div>

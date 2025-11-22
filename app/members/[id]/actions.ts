@@ -209,91 +209,133 @@ export async function deleteMember(memberId: number) {
 
 // 식단 가이드라인 관련 액션
 export async function createDietGuide(memberId: number) {
-  await prisma.dietGuide.upsert({
-    where: { memberId },
-    create: {
-      memberId,
-    },
-    update: {},
-  });
+  try {
+    await prisma.dietGuide.upsert({
+      where: { memberId },
+      create: {
+        memberId,
+      },
+      update: {},
+    });
 
-  revalidatePath(`/members/${memberId}`);
+    revalidatePath(`/members/${memberId}`);
+  } catch (error: any) {
+    if (error?.code === 'P2001' || error?.message?.includes('does not exist')) {
+      throw new Error('식단 가이드라인 테이블이 데이터베이스에 없습니다. Supabase에서 테이블을 생성해주세요.');
+    }
+    throw error;
+  }
 }
 
 export async function updateDietGuideMemo(memberId: number, formData: FormData) {
-  const memo = formData.get('memo') as string | null;
+  try {
+    const memo = formData.get('memo') as string | null;
 
-  // DietGuide가 없으면 생성
-  await prisma.dietGuide.upsert({
-    where: { memberId },
-    create: {
-      memberId,
-      memo: memo || null,
-    },
-    update: {
-      memo: memo || null,
-    },
-  });
+    // DietGuide가 없으면 생성 (테이블이 없을 수 있음)
+    try {
+      await prisma.dietGuide.upsert({
+        where: { memberId },
+        create: {
+          memberId,
+          memo: memo || null,
+        },
+        update: {
+          memo: memo || null,
+        },
+      });
+    } catch (error: any) {
+      if (error?.code === 'P2001' || error?.message?.includes('does not exist')) {
+        throw new Error('식단 가이드라인 테이블이 데이터베이스에 없습니다. Supabase에서 테이블을 생성해주세요.');
+      }
+      throw error;
+    }
 
-  revalidatePath(`/members/${memberId}`);
+    revalidatePath(`/members/${memberId}`);
+  } catch (error: any) {
+    console.error('메모 저장 오류:', error);
+    throw new Error(error.message || '메모를 저장하는 중 오류가 발생했습니다.');
+  }
 }
 
 export async function addMeal(memberId: number, formData: FormData) {
-  const name = formData.get('name') as string;
-  const carbs = parseFloat(formData.get('carbs') as string);
-  const protein = parseFloat(formData.get('protein') as string);
-  const fat = parseFloat(formData.get('fat') as string);
-  const calories = parseFloat(formData.get('calories') as string);
+  try {
+    const name = formData.get('name') as string;
+    const carbs = parseFloat(formData.get('carbs') as string);
+    const protein = parseFloat(formData.get('protein') as string);
+    const fat = parseFloat(formData.get('fat') as string);
+    const calories = parseFloat(formData.get('calories') as string);
 
-  // DietGuide가 없으면 생성
-  const dietGuide = await prisma.dietGuide.upsert({
-    where: { memberId },
-    create: {
-      memberId,
-    },
-    update: {},
-  });
+    // DietGuide가 없으면 생성 (테이블이 없을 수 있음)
+    let dietGuide;
+    try {
+      dietGuide = await prisma.dietGuide.upsert({
+        where: { memberId },
+        create: {
+          memberId,
+        },
+        update: {},
+      });
+    } catch (error: any) {
+      if (error?.code === 'P2001' || error?.message?.includes('does not exist')) {
+        throw new Error('식단 가이드라인 테이블이 데이터베이스에 없습니다. Supabase에서 테이블을 생성해주세요.');
+      }
+      throw error;
+    }
 
-  await prisma.meal.create({
-    data: {
-      dietGuideId: dietGuide.id,
-      name,
-      carbs,
-      protein,
-      fat,
-      calories,
-    },
-  });
+    await prisma.meal.create({
+      data: {
+        dietGuideId: dietGuide.id,
+        name,
+        carbs,
+        protein,
+        fat,
+        calories,
+      },
+    });
 
-  revalidatePath(`/members/${memberId}`);
+    revalidatePath(`/members/${memberId}`);
+  } catch (error: any) {
+    console.error('식사 추가 오류:', error);
+    throw new Error(error.message || '식사를 추가하는 중 오류가 발생했습니다.');
+  }
 }
 
 export async function updateMeal(mealId: number, memberId: number, formData: FormData) {
-  const name = formData.get('name') as string;
-  const carbs = parseFloat(formData.get('carbs') as string);
-  const protein = parseFloat(formData.get('protein') as string);
-  const fat = parseFloat(formData.get('fat') as string);
-  const calories = parseFloat(formData.get('calories') as string);
+  try {
+    const name = formData.get('name') as string;
+    const carbs = parseFloat(formData.get('carbs') as string);
+    const protein = parseFloat(formData.get('protein') as string);
+    const fat = parseFloat(formData.get('fat') as string);
+    const calories = parseFloat(formData.get('calories') as string);
 
-  await prisma.meal.update({
-    where: { id: mealId },
-    data: {
-      name,
-      carbs,
-      protein,
-      fat,
-      calories,
-    },
-  });
+    await prisma.meal.update({
+      where: { id: mealId },
+      data: {
+        name,
+        carbs,
+        protein,
+        fat,
+        calories,
+      },
+    });
 
-  revalidatePath(`/members/${memberId}`);
+    revalidatePath(`/members/${memberId}`);
+  } catch (error: any) {
+    console.error('식사 수정 오류:', error);
+    throw new Error(error.message || '식사를 수정하는 중 오류가 발생했습니다.');
+  }
 }
 
 export async function deleteMeal(mealId: number, memberId: number) {
-  await prisma.meal.delete({
-    where: { id: mealId },
-  });
+  try {
+    await prisma.meal.delete({
+      where: { id: mealId },
+    });
 
-  revalidatePath(`/members/${memberId}`);
+    revalidatePath(`/members/${memberId}`);
+  } catch (error: any) {
+    console.error('식사 삭제 오류:', error);
+    throw new Error(error.message || '식사를 삭제하는 중 오류가 발생했습니다.');
+  }
 }
 

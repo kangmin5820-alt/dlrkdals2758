@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import Link from 'next/link';
 
 export default function Error({
   error,
@@ -24,12 +25,12 @@ export default function Error({
         >
           다시 시도
         </button>
-        <button
-          onClick={() => window.location.href = '/members'}
-          className="w-full mt-2 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition"
+        <Link
+          href="/members"
+          className="w-full mt-2 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition block text-center"
         >
           회원 목록으로
-        </button>
+        </Link>
       </div>
     </div>
   );
