@@ -7,27 +7,16 @@ import { useTransition, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import DeleteSessionButton from './DeleteSessionButton';
 
-type SessionWithDetails = PTSession & {
-  exercises: {
-    id: number;
-    name: string;
-    feedback: string | null;
-    sets: {
-      id: number;
-      setNumber: number;
-      weightKg: number | null;
-      reps: number | null;
-      rir: number | null;
-      record: string | null;
-      volume: number | null;
-      restSec: number | null;
-      memo: string | null;
-    }[];
-  }[];
+type SessionSummary = {
+  id: number;
+  sessionNumber: number;
+  date: Date;
+  note: string | null;
+  homework: string | null;
 };
 
 type MemberWithSessions = Member & {
-  sessions: SessionWithDetails[];
+  sessions: SessionSummary[];
 };
 
 export default function PTSessionTab({
@@ -98,6 +87,7 @@ export default function PTSessionTab({
                 <div className="flex items-center gap-2">
                   <Link
                     href={`/members/${member.id}/sessions/${session.id}`}
+                    prefetch={true}
                     className="text-gray-400 hover:text-gray-300 text-xs font-semibold cursor-pointer transition-colors flex items-center gap-1 group"
                     style={{ pointerEvents: 'auto' }}
                   >
@@ -132,21 +122,10 @@ export default function PTSessionTab({
                 </div>
               )}
 
-              {/* 운동 목록 */}
-              {session.exercises.length === 0 ? (
-                <p className="text-gray-500 text-xs">운동 기록이 없습니다.</p>
-              ) : (
-                <div className="space-y-2">
-                  {session.exercises.map((exercise) => (
-                    <div
-                      key={exercise.id}
-                      className="border border-[#1a1a1a] rounded p-2 bg-[#0a0a0a]"
-                    >
-                      <div className="flex items-center justify-between mb-1.5">
-                        <h5 className="font-bold text-sm text-white">
-                          {exercise.name}
-                        </h5>
-                        {exercise.feedback && (
+              {/* 운동 목록은 세션 상세 페이지에서 확인 */}
+              <p className="text-gray-500 text-xs">
+                운동 기록은 상세 페이지에서 확인하세요.
+              </p>
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-gray-500 bg-[#111111] px-1.5 py-0.5 rounded">
                               피드백 있음

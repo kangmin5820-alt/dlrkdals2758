@@ -66,6 +66,7 @@ async function MembersList({ searchQuery }: { searchQuery?: string }) {
                   <td className="px-3 py-2 whitespace-nowrap">
                     <Link
                       href={`/members/${member.id}`}
+                      prefetch={true}
                       className="text-gray-300 hover:text-white font-semibold cursor-pointer block transition-colors text-xs"
                     >
                       {member.name}

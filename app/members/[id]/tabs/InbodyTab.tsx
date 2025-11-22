@@ -1,12 +1,18 @@
 'use client';
 
 import { addInbodyRecord } from '@/app/members/[id]/actions';
-import { Member, InbodyRecord } from '@prisma/client';
+import { Member } from '@prisma/client';
 import { useState, useTransition, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
+type InbodyRecordSummary = {
+  id: number;
+  date: Date;
+  imageUrl: string;
+};
+
 type MemberWithInbody = Member & {
-  inbodyRecords: InbodyRecord[];
+  inbodyRecords: InbodyRecordSummary[];
 };
 
 export default function InbodyTab({ member }: { member: MemberWithInbody }) {

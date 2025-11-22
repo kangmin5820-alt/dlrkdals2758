@@ -7,25 +7,20 @@ import MemoTab from './tabs/MemoTab';
 import InbodyTab from './tabs/InbodyTab';
 import PTSessionTab from './tabs/PTSessionTab';
 import DietTab from './tabs/DietTab';
-import { Member, PTSession, DietGuide, Meal } from '@prisma/client';
+import { Member, DietGuide, Meal } from '@prisma/client';
 
-type SessionWithDetails = PTSession & {
-  exercises: {
-    id: number;
-    name: string;
-    feedback: string | null;
-    sets: {
-      id: number;
-      setNumber: number;
-      weightKg: number | null;
-      reps: number | null;
-      rir: number | null;
-      record: string | null;
-      volume: number | null;
-      restSec: number | null;
-      memo: string | null;
-    }[];
-  }[];
+type SessionSummary = {
+  id: number;
+  sessionNumber: number;
+  date: Date;
+  note: string | null;
+  homework: string | null;
+};
+
+type InbodyRecordSummary = {
+  id: number;
+  date: Date;
+  imageUrl: string;
 };
 
 type DietGuideWithMeals = DietGuide & {
@@ -33,8 +28,8 @@ type DietGuideWithMeals = DietGuide & {
 };
 
 type MemberWithRelations = Member & {
-  sessions: SessionWithDetails[];
-  inbodyRecords: any[];
+  sessions: SessionSummary[];
+  inbodyRecords: InbodyRecordSummary[];
   dietGuide: DietGuideWithMeals | null;
 };
 

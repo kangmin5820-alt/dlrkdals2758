@@ -19,8 +19,20 @@ export default async function PTSessionDetailPage({
 
   const session = await prisma.pTSession.findUnique({
     where: { id: sessionId },
-    include: {
-      member: true,
+    select: {
+      id: true,
+      memberId: true,
+      sessionNumber: true,
+      date: true,
+      note: true,
+      homework: true,
+      createdAt: true,
+      member: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
       exercises: {
         include: {
           sets: {

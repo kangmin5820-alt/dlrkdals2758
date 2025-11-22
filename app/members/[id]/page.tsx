@@ -16,44 +16,59 @@ export default async function MemberDetailPage({
   const memberId = parseInt(params.id);
   
   try {
-    const member = await prisma.member.findUnique({
-      where: { id: memberId },
-      include: {
-        sessions: {
-          include: {
-            exercises: {
-              include: {
-                sets: {
-                  orderBy: {
-                    setNumber: 'asc',
-                  },
-                },
-              },
-              orderBy: {
-                order: 'asc',
-              },
+    // 병렬 쿼리로 성능 최적화
+    const [member, dietGuide] = await Promise.all([
+      prisma.member.findUnique({
+        where: { id: memberId },
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          createdAt: true,
+          updatedAt: true,
+          // 기본 정보
+          heightCm: true,
+          weightKg: true,
+          goalWeightKg: true,
+          bodyFatPct: true,
+          goalBodyFatPct: true,
+          skeletalMuscleKg: true,
+          goalSkeletalMuscleKg: true,
+          // 생활 패턴
+          sleepHours: true,
+          job: true,
+          exerciseLevel: true,
+          smoking: true,
+          drinking: true,
+          memo: true,
+          // 세션 목록만 (상세 정보는 세션 상세 페이지에서 로드)
+          sessions: {
+            select: {
+              id: true,
+              sessionNumber: true,
+              date: true,
+              note: true,
+              homework: true,
+            },
+            orderBy: {
+              date: 'desc',
             },
           },
-          orderBy: {
-            date: 'desc',
+          // 인바디 기록
+          inbodyRecords: {
+            select: {
+              id: true,
+              date: true,
+              imageUrl: true,
+            },
+            orderBy: {
+              date: 'desc',
+            },
           },
         },
-        inbodyRecords: {
-          orderBy: {
-            date: 'desc',
-          },
-        },
-      },
-    });
-
-    if (!member) {
-      notFound();
-    }
-
-    // dietGuide는 선택적으로 조회 (테이블이 없을 수 있음)
-    let dietGuide = null;
-    try {
-      dietGuide = await prisma.dietGuide.findUnique({
+      }),
+      // dietGuide는 별도로 조회 (에러 처리)
+      prisma.dietGuide.findUnique({
         where: { memberId },
         include: {
           meals: {
@@ -62,23 +77,25 @@ export default async function MemberDetailPage({
             },
           },
         },
-      });
-    } catch (dietError: any) {
-      // dietGuide 테이블이 없거나 레코드가 없으면 null로 처리
-      // P2025: Record not found, P2001: Table does not exist
-      if (dietError?.code === 'P2001' || dietError?.message?.includes('does not exist') || dietError?.message?.includes('relation')) {
-        // 테이블이 없는 경우 - 조용히 무시
-        dietGuide = null;
-      } else if (dietError?.code !== 'P2025') {
-        // 다른 에러인 경우에만 로그
-        console.warn('DietGuide 조회 실패:', dietError?.message || dietError);
-      }
+      }).catch((dietError: any) => {
+        // dietGuide 테이블이 없거나 레코드가 없으면 null로 처리
+        if (dietError?.code === 'P2001' || dietError?.message?.includes('does not exist') || dietError?.message?.includes('relation')) {
+          return null;
+        } else if (dietError?.code !== 'P2025') {
+          console.warn('DietGuide 조회 실패:', dietError?.message || dietError);
+        }
+        return null;
+      }),
+    ]);
+
+    if (!member) {
+      notFound();
     }
 
     // member 객체에 dietGuide 추가
     const memberWithDietGuide = {
       ...member,
-      dietGuide,
+      dietGuide: dietGuide || null,
     };
 
     return (
