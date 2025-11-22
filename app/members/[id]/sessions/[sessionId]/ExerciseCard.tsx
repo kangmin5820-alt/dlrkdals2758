@@ -77,7 +77,7 @@ export default function ExerciseCard({ exercise }: { exercise: any }) {
               setError(null);
               startTransition(async () => {
                 try {
-                  await addExerciseSet(exercise.id, new FormData());
+                  await addExerciseSet(new FormData());
                   router.refresh();
                 } catch (err: any) {
                   setError(err.message || '세트를 추가하는 중 오류가 발생했습니다.');
