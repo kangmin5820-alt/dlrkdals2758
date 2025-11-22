@@ -4,6 +4,12 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
+// DATABASE_URL이 없으면 에러 메시지와 함께 안전하게 처리
+if (!process.env.DATABASE_URL) {
+  console.error('❌ DATABASE_URL 환경 변수가 설정되지 않았습니다.');
+  console.error('Vercel 대시보드 > Settings > Environment Variables에서 DATABASE_URL을 설정해주세요.');
+}
+
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({

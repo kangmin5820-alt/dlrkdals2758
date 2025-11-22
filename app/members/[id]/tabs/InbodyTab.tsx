@@ -82,10 +82,10 @@ export default function InbodyTab({ member }: { member: MemberWithInbody }) {
                 날짜
               </label>
               <input
-                type="datetime-local"
+                type="date"
                 name="date"
                 required
-                defaultValue={new Date().toISOString().slice(0, 16)}
+                defaultValue={new Date().toISOString().split('T')[0]}
                 className="w-full px-2 py-1.5 bg-[#0a0a0a] border border-[#1a1a1a] rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-white text-xs transition-all"
               />
             </div>

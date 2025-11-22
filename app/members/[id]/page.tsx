@@ -41,6 +41,15 @@ export default async function MemberDetailPage({
           date: 'desc',
         },
       },
+      dietGuide: {
+        include: {
+          meals: {
+            orderBy: {
+              createdAt: 'asc',
+            },
+          },
+        },
+      },
     },
   });
 

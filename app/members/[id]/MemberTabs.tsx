@@ -6,7 +6,8 @@ import LifestyleTab from './tabs/LifestyleTab';
 import MemoTab from './tabs/MemoTab';
 import InbodyTab from './tabs/InbodyTab';
 import PTSessionTab from './tabs/PTSessionTab';
-import { Member, PTSession } from '@prisma/client';
+import DietTab from './tabs/DietTab';
+import { Member, PTSession, DietGuide, Meal } from '@prisma/client';
 
 type SessionWithDetails = PTSession & {
   exercises: {
@@ -27,9 +28,14 @@ type SessionWithDetails = PTSession & {
   }[];
 };
 
+type DietGuideWithMeals = DietGuide & {
+  meals: Meal[];
+};
+
 type MemberWithRelations = Member & {
   sessions: SessionWithDetails[];
   inbodyRecords: any[];
+  dietGuide: DietGuideWithMeals | null;
 };
 
 export default function MemberTabs({ member }: { member: MemberWithRelations }) {
@@ -39,6 +45,7 @@ export default function MemberTabs({ member }: { member: MemberWithRelations }) 
     { id: 'basic', label: '기본정보' },
     { id: 'lifestyle', label: '생활패턴' },
     { id: 'memo', label: '상세메모' },
+    { id: 'diet', label: '식단가이드' },
     { id: 'inbody', label: '인바디' },
     { id: 'sessions', label: 'PT 세션' },
   ];
@@ -74,6 +81,7 @@ export default function MemberTabs({ member }: { member: MemberWithRelations }) 
         {activeTab === 'basic' && <BasicInfoTab member={member} />}
         {activeTab === 'lifestyle' && <LifestyleTab member={member} />}
         {activeTab === 'memo' && <MemoTab member={member} />}
+        {activeTab === 'diet' && <DietTab memberId={member.id} dietGuide={member.dietGuide} />}
         {activeTab === 'inbody' && <InbodyTab member={member} />}
         {activeTab === 'sessions' && <PTSessionTab member={member} />}
       </div>

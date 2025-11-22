@@ -86,7 +86,9 @@ export async function updateMemberMemo(memberId: number, formData: FormData) {
 }
 
 export async function addInbodyRecord(memberId: number, formData: FormData) {
-  const date = new Date(formData.get('date') as string);
+  const dateString = formData.get('date') as string;
+  // 날짜 문자열을 Date 객체로 변환 (YYYY-MM-DD 형식)
+  const date = new Date(dateString + 'T00:00:00');
   const imageUrl = formData.get('imageUrl') as string;
 
   await prisma.inbodyRecord.create({
@@ -203,5 +205,95 @@ export async function deleteMember(memberId: number) {
 
   revalidatePath('/members');
   redirect('/members');
+}
+
+// 식단 가이드라인 관련 액션
+export async function createDietGuide(memberId: number) {
+  await prisma.dietGuide.upsert({
+    where: { memberId },
+    create: {
+      memberId,
+    },
+    update: {},
+  });
+
+  revalidatePath(`/members/${memberId}`);
+}
+
+export async function updateDietGuideMemo(memberId: number, formData: FormData) {
+  const memo = formData.get('memo') as string | null;
+
+  // DietGuide가 없으면 생성
+  await prisma.dietGuide.upsert({
+    where: { memberId },
+    create: {
+      memberId,
+      memo: memo || null,
+    },
+    update: {
+      memo: memo || null,
+    },
+  });
+
+  revalidatePath(`/members/${memberId}`);
+}
+
+export async function addMeal(memberId: number, formData: FormData) {
+  const name = formData.get('name') as string;
+  const carbs = parseFloat(formData.get('carbs') as string);
+  const protein = parseFloat(formData.get('protein') as string);
+  const fat = parseFloat(formData.get('fat') as string);
+  const calories = parseFloat(formData.get('calories') as string);
+
+  // DietGuide가 없으면 생성
+  const dietGuide = await prisma.dietGuide.upsert({
+    where: { memberId },
+    create: {
+      memberId,
+    },
+    update: {},
+  });
+
+  await prisma.meal.create({
+    data: {
+      dietGuideId: dietGuide.id,
+      name,
+      carbs,
+      protein,
+      fat,
+      calories,
+    },
+  });
+
+  revalidatePath(`/members/${memberId}`);
+}
+
+export async function updateMeal(mealId: number, memberId: number, formData: FormData) {
+  const name = formData.get('name') as string;
+  const carbs = parseFloat(formData.get('carbs') as string);
+  const protein = parseFloat(formData.get('protein') as string);
+  const fat = parseFloat(formData.get('fat') as string);
+  const calories = parseFloat(formData.get('calories') as string);
+
+  await prisma.meal.update({
+    where: { id: mealId },
+    data: {
+      name,
+      carbs,
+      protein,
+      fat,
+      calories,
+    },
+  });
+
+  revalidatePath(`/members/${memberId}`);
+}
+
+export async function deleteMeal(mealId: number, memberId: number) {
+  await prisma.meal.delete({
+    where: { id: mealId },
+  });
+
+  revalidatePath(`/members/${memberId}`);
 }
 

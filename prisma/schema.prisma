@@ -37,6 +37,7 @@ model Member {
 
   inbodyRecords InbodyRecord[]
   sessions      PTSession[]
+  dietGuide     DietGuide?
 }
 
 model InbodyRecord {
@@ -88,5 +89,32 @@ model ExerciseSet {
   volume    Float?  // 블륨 (Volume)
   restSec   Int?    // 휴식(초)
   memo      String? // 메모
+}
+
+model DietGuide {
+  id        Int      @id @default(autoincrement())
+  member    Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  memberId  Int      @unique
+  memo      String?  // 식단 가이드라인 메모
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  meals     Meal[]
+}
+
+model Meal {
+  id          Int       @id @default(autoincrement())
+  dietGuide   DietGuide @relation(fields: [dietGuideId], references: [id], onDelete: Cascade)
+  dietGuideId Int
+  
+  name        String    // 식사명 (예: 아침식사, 점심식사, 저녁식사)
+  carbs       Float     // 탄수화물 (g)
+  protein     Float     // 단백질 (g)
+  fat         Float     // 지방 (g)
+  calories    Float     // 칼로리 (kcal)
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
