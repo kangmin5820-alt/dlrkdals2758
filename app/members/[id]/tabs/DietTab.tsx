@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { addMeal, updateMeal, deleteMeal, updateDietGuideMemo } from '../actions';
 import { DietGuide, Meal } from '@prisma/client';
 
@@ -17,6 +18,8 @@ export default function DietTab({
 }) {
   const [editingMealId, setEditingMealId] = useState<number | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   const editingMeal = editingMealId
     ? dietGuide?.meals.find((m) => m.id === editingMealId)
@@ -51,22 +54,21 @@ export default function DietTab({
           <div className="mb-3 p-3 bg-[#111111] border border-[#1a1a1a] rounded">
             <form
               action={editingMealId
-                ? updateMeal.bind(null, editingMealId, memberId)
-                : addMeal.bind(null, memberId)}
-              onSubmit={(e) => {
-                e.preventDefault();
-                const formData = new FormData(e.currentTarget);
-                if (editingMealId) {
-                  updateMeal(editingMealId, memberId, formData).then(() => {
-                    setShowAddForm(false);
-                    setEditingMealId(null);
-                  });
-                } else {
-                  addMeal(memberId, formData).then(() => {
-                    setShowAddForm(false);
-                  });
-                }
-              }}
+                ? async (formData: FormData) => {
+                    startTransition(async () => {
+                      await updateMeal(editingMealId, memberId, formData);
+                      setShowAddForm(false);
+                      setEditingMealId(null);
+                      router.refresh();
+                    });
+                  }
+                : async (formData: FormData) => {
+                    startTransition(async () => {
+                      await addMeal(memberId, formData);
+                      setShowAddForm(false);
+                      router.refresh();
+                    });
+                  }}
               className="space-y-2"
             >
               <div>
@@ -146,10 +148,11 @@ export default function DietTab({
               <div className="flex gap-2">
                 <button
                   type="submit"
-                  className="bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded text-xs font-semibold transition-colors cursor-pointer border border-white/10"
+                  disabled={isPending}
+                  className="bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded text-xs font-semibold transition-colors cursor-pointer border border-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ pointerEvents: 'auto', position: 'relative', zIndex: 10 }}
                 >
-                  저장
+                  {isPending ? '저장 중...' : '저장'}
                 </button>
                 <button
                   type="button"
@@ -224,23 +227,21 @@ export default function DietTab({
                         >
                           수정
                         </button>
-                        <form
-                          action={deleteMeal.bind(null, meal.id, memberId)}
-                          onSubmit={(e) => {
-                            if (!confirm('이 식사를 삭제하시겠습니까?')) {
-                              e.preventDefault();
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (confirm('이 식사를 삭제하시겠습니까?')) {
+                              startTransition(async () => {
+                                await deleteMeal(meal.id, memberId);
+                                router.refresh();
+                              });
                             }
                           }}
-                          className="inline"
+                          className="text-red-400 hover:text-red-300 transition-colors cursor-pointer"
+                          style={{ pointerEvents: 'auto', position: 'relative', zIndex: 10 }}
                         >
-                          <button
-                            type="submit"
-                            className="text-red-400 hover:text-red-300 transition-colors cursor-pointer"
-                            style={{ pointerEvents: 'auto', position: 'relative', zIndex: 10 }}
-                          >
-                            삭제
-                          </button>
-                        </form>
+                          삭제
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -275,7 +276,15 @@ export default function DietTab({
       {/* 메모 섹션 */}
       <div className="mt-4 pt-4 border-t border-[#1a1a1a]">
         <h3 className="text-sm font-semibold text-white mb-2">식단 가이드라인 메모</h3>
-        <form action={updateDietGuideMemo.bind(null, memberId)} style={{ pointerEvents: 'auto' }}>
+        <form 
+          action={async (formData: FormData) => {
+            startTransition(async () => {
+              await updateDietGuideMemo(memberId, formData);
+              router.refresh();
+            });
+          }}
+          style={{ pointerEvents: 'auto' }}
+        >
           <textarea
             name="memo"
             rows={10}
@@ -286,10 +295,11 @@ export default function DietTab({
           <div className="mt-2">
             <button
               type="submit"
-              className="bg-white/10 hover:bg-white/20 text-white px-4 py-1.5 rounded transition-colors cursor-pointer font-semibold text-xs border border-white/10"
+              disabled={isPending}
+              className="bg-white/10 hover:bg-white/20 text-white px-4 py-1.5 rounded transition-colors cursor-pointer font-semibold text-xs border border-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ pointerEvents: 'auto', position: 'relative', zIndex: 10 }}
             >
-              메모 저장
+              {isPending ? '저장 중...' : '메모 저장'}
             </button>
           </div>
         </form>
