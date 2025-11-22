@@ -77,12 +77,12 @@ export default function ExerciseCard({ exercise }: { exercise: any }) {
               setError(null);
               startTransition(async () => {
                 try {
-                  await addExerciseSet(new FormData());
+                  await addExerciseSet(exercise.id);
                   router.refresh();
                 } catch (err: any) {
                   setError(err.message || '세트를 추가하는 중 오류가 발생했습니다.');
                 }
-              });
+              });              
             }}
             disabled={isPending}
             className="px-2 py-1 bg-white/10 hover:bg-white/20 text-white rounded transition-colors text-xs font-semibold border border-white/10 disabled:opacity-50 disabled:cursor-not-allowed"

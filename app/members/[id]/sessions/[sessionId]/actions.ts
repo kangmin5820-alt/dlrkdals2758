@@ -99,6 +99,7 @@ export async function updateExerciseFeedback(
 }
 
 export async function addExerciseSet(exerciseId: number) {
+  'use server';
   // 해당 운동의 마지막 setNumber 찾기
   const lastSet = await prisma.exerciseSet.findFirst({
     where: { exerciseId },
