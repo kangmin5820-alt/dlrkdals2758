@@ -10,6 +10,7 @@ import {
 } from './actions';
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import FeedbackInput from '@/app/components/FeedbackInput';
 
 export default function ExerciseCard({ exercise }: { exercise: any }) {
   const [showFeedback, setShowFeedback] = useState(false);
@@ -121,9 +122,16 @@ export default function ExerciseCard({ exercise }: { exercise: any }) {
           {exercise.feedback && !showFeedback && (
             <div>
               <p className="text-xs font-semibold text-gray-400 mb-1">피드백</p>
-              <p className="text-gray-300 whitespace-pre-wrap bg-black p-1.5 rounded text-xs">
-                {exercise.feedback}
-              </p>
+              <div className="text-gray-300 whitespace-pre-wrap bg-black p-1.5 rounded text-xs">
+                {exercise.feedback.startsWith('<img') ? (
+                  <div 
+                    dangerouslySetInnerHTML={{ __html: exercise.feedback }}
+                    className="[&_img]:max-w-full [&_img]:h-auto [&_img]:bg-white [&_img]:rounded"
+                  />
+                ) : (
+                  <div>{exercise.feedback}</div>
+                )}
+              </div>
               <button
                 onClick={() => setShowFeedback(true)}
                 className="mt-1 text-gray-400 hover:text-gray-300 text-xs transition-colors"
@@ -133,27 +141,13 @@ export default function ExerciseCard({ exercise }: { exercise: any }) {
             </div>
           )}
           {showFeedback && (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                setError(null);
-                const formData = new FormData(e.currentTarget);
-                startTransition(async () => {
-                  try {
-                    await updateExerciseFeedback(exercise.id, formData);
-                    setShowFeedback(false);
-                    router.refresh();
-                  } catch (err: any) {
-                    setError(err.message || '피드백을 저장하는 중 오류가 발생했습니다.');
-                  }
-                });
-              }}
-            >
-              <textarea
-                name="feedback"
-                rows={2}
-                defaultValue={exercise.feedback || ''}
-                className="w-full px-2 py-1 bg-[#111111] border border-[#1a1a1a] rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-white placeholder-gray-600 text-xs transition-all resize-none"
+            <div>
+              <FeedbackInput
+                initialFeedback={exercise.feedback}
+                onSave={async (formData) => {
+                  await updateExerciseFeedback(exercise.id, formData);
+                  setShowFeedback(false);
+                }}
                 placeholder="이 운동에 대한 피드백을 입력하세요..."
               />
               <div className="mt-2 flex justify-end gap-1.5">
@@ -168,19 +162,11 @@ export default function ExerciseCard({ exercise }: { exercise: any }) {
                 >
                   취소
                 </button>
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded transition-colors text-xs font-semibold border border-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ pointerEvents: 'auto' }}
-                >
-                  {isPending ? '저장 중...' : '저장'}
-                </button>
               </div>
               {error && (
                 <p className="text-red-400 text-xs mt-1">{error}</p>
               )}
-            </form>
+            </div>
           )}
         </div>
       )}
