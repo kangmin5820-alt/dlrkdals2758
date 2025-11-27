@@ -26,7 +26,7 @@ export default function HandwritingInput({
   const [hasContent, setHasContent] = useState(false);
   const [showToolbar, setShowToolbar] = useState(true);
 
-  // Canvas 초기화
+  // Canvas 초기화 (한 번만 실행)
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -55,12 +55,6 @@ export default function HandwritingInput({
     // 배경 설정
     ctx.fillStyle = '#111111';
     ctx.fillRect(0, 0, width, height);
-    
-    // 선 스타일 설정
-    ctx.strokeStyle = color;
-    ctx.lineWidth = lineWidth;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
 
     // 초기 이미지 로드
     if (initialImage) {
@@ -96,14 +90,13 @@ export default function HandwritingInput({
       };
       img.src = initialImage;
     }
-  }, [width, height, color, lineWidth, initialImage]);
+  }, [width, height, initialImage]);
 
   const getCoordinates = useCallback((e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
 
     const rect = canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
 
     if ('touches' in e) {
       // 터치 이벤트 (손가락 또는 펜슬)
@@ -116,21 +109,24 @@ export default function HandwritingInput({
       
       if (!touch) return null;
       
-      // CSS 좌표를 Canvas 좌표로 변환 (DPR 고려)
-      const x = (touch.clientX - rect.left) * dpr;
-      const y = (touch.clientY - rect.top) * dpr;
+      // CSS 좌표를 Canvas 좌표로 변환
+      // ctx.scale(dpr, dpr)로 이미 스케일이 적용되어 있으므로 CSS 좌표 그대로 사용
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
       
       return { x, y };
     } else {
       // 마우스 이벤트
-      const x = (e.clientX - rect.left) * dpr;
-      const y = (e.clientY - rect.top) * dpr;
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
       return { x, y };
     }
   }, []);
 
   const startDrawing = useCallback((e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault();
+    e.stopPropagation();
+    
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -143,9 +139,9 @@ export default function HandwritingInput({
     setIsDrawing(true);
     setHasContent(true);
 
-    const dpr = window.devicePixelRatio || 1;
+    // 선 스타일 설정 (스케일이 이미 적용되어 있으므로 lineWidth는 그대로 사용)
     ctx.strokeStyle = color;
-    ctx.lineWidth = lineWidth * dpr;
+    ctx.lineWidth = lineWidth;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
@@ -155,6 +151,8 @@ export default function HandwritingInput({
 
   const draw = useCallback((e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault();
+    e.stopPropagation();
+    
     if (!isDrawing) return;
 
     const canvas = canvasRef.current;
@@ -166,9 +164,15 @@ export default function HandwritingInput({
     const coords = getCoordinates(e);
     if (!coords) return;
 
+    // 선 스타일 유지
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lineWidth;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
     ctx.lineTo(coords.x, coords.y);
     ctx.stroke();
-  }, [isDrawing, getCoordinates]);
+  }, [isDrawing, getCoordinates, color, lineWidth]);
 
   const stopDrawing = useCallback(() => {
     setIsDrawing(false);
@@ -181,11 +185,11 @@ export default function HandwritingInput({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const dpr = window.devicePixelRatio || 1;
+    // 배경 지우기
     ctx.fillStyle = '#111111';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, width, height);
     setHasContent(false);
-  }, []);
+  }, [width, height]);
 
   const saveCanvas = useCallback(async () => {
     const canvas = canvasRef.current;
@@ -294,12 +298,14 @@ export default function HandwritingInput({
           style={{ 
             width: `${width}px`, 
             maxWidth: '100%', 
-            height: 'auto',
+            height: `${height}px`,
             touchAction: 'none',
             userSelect: 'none',
             WebkitUserSelect: 'none',
             WebkitTouchCallout: 'none',
-            msTouchAction: 'none'
+            msTouchAction: 'none',
+            pointerEvents: 'auto',
+            display: 'block'
           }}
           onMouseDown={startDrawing}
           onMouseMove={draw}
