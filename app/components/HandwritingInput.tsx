@@ -20,6 +20,7 @@ export default function HandwritingInput({
   className = '',
 }: HandwritingInputProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [lineWidth, setLineWidth] = useState(3);
   const [color, setColor] = useState('#ffffff');
@@ -32,7 +33,7 @@ export default function HandwritingInput({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: false });
     if (!ctx) return;
 
     // 고해상도 지원
@@ -62,7 +63,6 @@ export default function HandwritingInput({
         ctx.fillStyle = '#111111';
         ctx.fillRect(0, 0, width, height);
         
-        // 이미지 비율 유지하면서 그리기
         const imgAspect = img.width / img.height;
         const canvasAspect = width / height;
         let drawWidth = width;
@@ -88,32 +88,20 @@ export default function HandwritingInput({
     }
   }, [width, height, initialImage]);
 
-  // 좌표 가져오기 (마우스)
-  const getMousePos = useCallback((e: MouseEvent) => {
+  // 좌표 가져오기 (공통)
+  const getPoint = useCallback((clientX: number, clientY: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
+    
     const rect = canvas.getBoundingClientRect();
     return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    };
-  }, []);
-
-  // 좌표 가져오기 (터치)
-  const getTouchPos = useCallback((e: TouchEvent) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return null;
-    const rect = canvas.getBoundingClientRect();
-    const touch = e.touches[0] || e.changedTouches[0];
-    if (!touch) return null;
-    return {
-      x: touch.clientX - rect.left,
-      y: touch.clientY - rect.top,
+      x: clientX - rect.left,
+      y: clientY - rect.top,
     };
   }, []);
 
   // 그리기 함수
-  const draw = useCallback((x: number, y: number) => {
+  const drawLine = useCallback((fromX: number, fromY: number, toX: number, toY: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     
@@ -125,82 +113,109 @@ export default function HandwritingInput({
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
-    if (lastPointRef.current) {
-      // 이전 점에서 현재 점까지 선 그리기
-      ctx.beginPath();
-      ctx.moveTo(lastPointRef.current.x, lastPointRef.current.y);
-      ctx.lineTo(x, y);
-      ctx.stroke();
-    } else {
-      // 첫 점은 작은 원으로 표시
-      ctx.beginPath();
-      ctx.arc(x, y, lineWidth / 2, 0, Math.PI * 2);
-      ctx.fillStyle = color;
-      ctx.fill();
-    }
-
-    lastPointRef.current = { x, y };
+    ctx.beginPath();
+    ctx.moveTo(fromX, fromY);
+    ctx.lineTo(toX, toY);
+    ctx.stroke();
   }, [color, lineWidth]);
 
-  // 마우스 이벤트 핸들러
-  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    const pos = getMousePos(e.nativeEvent);
-    if (!pos) return;
-    
+  // 그리기 시작
+  const startDraw = useCallback((x: number, y: number) => {
     setIsDrawing(true);
     setHasContent(true);
-    lastPointRef.current = pos;
-    draw(pos.x, pos.y);
-  }, [getMousePos, draw]);
+    lastPointRef.current = { x, y };
+    
+    // 첫 점을 작은 원으로 표시
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, y, lineWidth / 2, 0, Math.PI * 2);
+    ctx.fill();
+  }, [color, lineWidth]);
+
+  // 그리기 계속
+  const continueDraw = useCallback((x: number, y: number) => {
+    if (!isDrawing || !lastPointRef.current) return;
+    
+    drawLine(lastPointRef.current.x, lastPointRef.current.y, x, y);
+    lastPointRef.current = { x, y };
+  }, [isDrawing, drawLine]);
+
+  // 그리기 종료
+  const endDraw = useCallback(() => {
+    setIsDrawing(false);
+    lastPointRef.current = null;
+  }, []);
+
+  // 마우스 이벤트
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const point = getPoint(e.clientX, e.clientY);
+    if (point) {
+      startDraw(point.x, point.y);
+    }
+  }, [getPoint, startDraw]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return;
     e.preventDefault();
-    const pos = getMousePos(e.nativeEvent);
-    if (!pos) return;
-    draw(pos.x, pos.y);
-  }, [isDrawing, getMousePos, draw]);
+    e.stopPropagation();
+    const point = getPoint(e.clientX, e.clientY);
+    if (point) {
+      continueDraw(point.x, point.y);
+    }
+  }, [isDrawing, getPoint, continueDraw]);
 
   const handleMouseUp = useCallback(() => {
-    setIsDrawing(false);
-    lastPointRef.current = null;
-  }, []);
+    endDraw();
+  }, [endDraw]);
 
   const handleMouseLeave = useCallback(() => {
-    setIsDrawing(false);
-    lastPointRef.current = null;
-  }, []);
+    endDraw();
+  }, [endDraw]);
 
-  // 터치 이벤트 핸들러
+  // 터치 이벤트
   const handleTouchStart = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault();
-    const pos = getTouchPos(e.nativeEvent);
-    if (!pos) return;
-    
-    setIsDrawing(true);
-    setHasContent(true);
-    lastPointRef.current = pos;
-    draw(pos.x, pos.y);
-  }, [getTouchPos, draw]);
+    e.stopPropagation();
+    const touch = e.touches[0];
+    if (touch) {
+      const point = getPoint(touch.clientX, touch.clientY);
+      if (point) {
+        startDraw(point.x, point.y);
+      }
+    }
+  }, [getPoint, startDraw]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return;
     e.preventDefault();
-    const pos = getTouchPos(e.nativeEvent);
-    if (!pos) return;
-    draw(pos.x, pos.y);
-  }, [isDrawing, getTouchPos, draw]);
+    e.stopPropagation();
+    const touch = e.touches[0];
+    if (touch) {
+      const point = getPoint(touch.clientX, touch.clientY);
+      if (point) {
+        continueDraw(point.x, point.y);
+      }
+    }
+  }, [isDrawing, getPoint, continueDraw]);
 
-  const handleTouchEnd = useCallback(() => {
-    setIsDrawing(false);
-    lastPointRef.current = null;
-  }, []);
+  const handleTouchEnd = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    endDraw();
+  }, [endDraw]);
 
-  const handleTouchCancel = useCallback(() => {
-    setIsDrawing(false);
-    lastPointRef.current = null;
-  }, []);
+  const handleTouchCancel = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    endDraw();
+  }, [endDraw]);
 
   // 지우기
   const clearCanvas = useCallback(() => {
@@ -230,7 +245,7 @@ export default function HandwritingInput({
   }, [onSave]);
 
   return (
-    <div className={`relative ${className}`}>
+    <div className={`relative ${className}`} ref={containerRef}>
       {/* 툴바 */}
       {showToolbar && (
         <div className="flex items-center gap-2 mb-2 flex-wrap">
@@ -281,12 +296,12 @@ export default function HandwritingInput({
           touchAction: 'none',
           WebkitTouchCallout: 'none',
           WebkitUserSelect: 'none',
-          userSelect: 'none'
+          userSelect: 'none',
+          position: 'relative'
         }}
       >
         <canvas
           ref={canvasRef}
-          className="block"
           style={{ 
             width: `${width}px`, 
             maxWidth: '100%', 
@@ -297,7 +312,9 @@ export default function HandwritingInput({
             WebkitTouchCallout: 'none',
             msTouchAction: 'none',
             cursor: 'crosshair',
-            display: 'block'
+            display: 'block',
+            position: 'relative',
+            zIndex: 1
           }}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
@@ -309,7 +326,10 @@ export default function HandwritingInput({
           onTouchCancel={handleTouchCancel}
         />
         {!hasContent && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div 
+            className="absolute inset-0 flex items-center justify-center pointer-events-none"
+            style={{ zIndex: 0 }}
+          >
             <p className="text-gray-600 text-xs">{placeholder}</p>
           </div>
         )}
