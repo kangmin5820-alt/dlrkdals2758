@@ -106,8 +106,9 @@ export default function HandwritingInput({
     const dpr = window.devicePixelRatio || 1;
 
     if ('touches' in e) {
-      // 터치 이벤트
-      const touch = e.touches[0] || e.changedTouches[0];
+      // 터치 이벤트 (손가락 또는 펜슬)
+      const touch = e.touches[0] || (e.changedTouches && e.changedTouches[0]);
+      if (!touch) return null;
       return {
         x: (touch.clientX - rect.left) * dpr,
         y: (touch.clientY - rect.top) * dpr,
@@ -199,14 +200,22 @@ export default function HandwritingInput({
 
   // 터치 이벤트 핸들러
   const handleTouchStart = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
     startDrawing(e);
   }, [startDrawing]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
     draw(e);
   }, [draw]);
 
-  const handleTouchEnd = useCallback(() => {
+  const handleTouchEnd = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    stopDrawing();
+  }, [stopDrawing]);
+
+  const handleTouchCancel = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
     stopDrawing();
   }, [stopDrawing]);
 
@@ -254,11 +263,18 @@ export default function HandwritingInput({
       )}
 
       {/* Canvas */}
-      <div className="relative border border-[#1a1a1a] rounded bg-[#111111] overflow-hidden touch-none">
+      <div className="relative border border-[#1a1a1a] rounded bg-[#111111] overflow-hidden" style={{ touchAction: 'none' }}>
         <canvas
           ref={canvasRef}
           className="block cursor-crosshair"
-          style={{ width: `${width}px`, maxWidth: '100%', height: 'auto' }}
+          style={{ 
+            width: `${width}px`, 
+            maxWidth: '100%', 
+            height: 'auto',
+            touchAction: 'none',
+            userSelect: 'none',
+            WebkitUserSelect: 'none'
+          }}
           onMouseDown={startDrawing}
           onMouseMove={draw}
           onMouseUp={stopDrawing}
@@ -266,6 +282,7 @@ export default function HandwritingInput({
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchCancel}
         />
         {!hasContent && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
