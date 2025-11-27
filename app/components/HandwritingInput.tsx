@@ -107,18 +107,25 @@ export default function HandwritingInput({
 
     if ('touches' in e) {
       // 터치 이벤트 (손가락 또는 펜슬)
-      const touch = e.touches[0] || (e.changedTouches && e.changedTouches[0]);
+      // touches는 현재 터치 중인 손가락들, changedTouches는 방금 변경된 터치들
+      const touch = e.touches && e.touches.length > 0 
+        ? e.touches[0] 
+        : (e.changedTouches && e.changedTouches.length > 0 
+          ? e.changedTouches[0] 
+          : null);
+      
       if (!touch) return null;
-      return {
-        x: (touch.clientX - rect.left) * dpr,
-        y: (touch.clientY - rect.top) * dpr,
-      };
+      
+      // CSS 좌표를 Canvas 좌표로 변환 (DPR 고려)
+      const x = (touch.clientX - rect.left) * dpr;
+      const y = (touch.clientY - rect.top) * dpr;
+      
+      return { x, y };
     } else {
       // 마우스 이벤트
-      return {
-        x: (e.clientX - rect.left) * dpr,
-        y: (e.clientY - rect.top) * dpr,
-      };
+      const x = (e.clientX - rect.left) * dpr;
+      const y = (e.clientY - rect.top) * dpr;
+      return { x, y };
     }
   }, []);
 
@@ -198,24 +205,33 @@ export default function HandwritingInput({
     }, 'image/png', 0.9);
   }, [onSave]);
 
-  // 터치 이벤트 핸들러
+  // 터치 이벤트 핸들러 (손가락/펜슬 모두 지원)
   const handleTouchStart = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault();
-    startDrawing(e);
+    e.stopPropagation();
+    const touch = e.touches[0];
+    if (touch) {
+      startDrawing(e);
+    }
   }, [startDrawing]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault();
-    draw(e);
-  }, [draw]);
+    e.stopPropagation();
+    if (isDrawing) {
+      draw(e);
+    }
+  }, [draw, isDrawing]);
 
   const handleTouchEnd = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault();
+    e.stopPropagation();
     stopDrawing();
   }, [stopDrawing]);
 
   const handleTouchCancel = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault();
+    e.stopPropagation();
     stopDrawing();
   }, [stopDrawing]);
 
@@ -263,7 +279,15 @@ export default function HandwritingInput({
       )}
 
       {/* Canvas */}
-      <div className="relative border border-[#1a1a1a] rounded bg-[#111111] overflow-hidden" style={{ touchAction: 'none' }}>
+      <div 
+        className="relative border border-[#1a1a1a] rounded bg-[#111111] overflow-hidden" 
+        style={{ 
+          touchAction: 'none',
+          WebkitTouchCallout: 'none',
+          WebkitUserSelect: 'none',
+          userSelect: 'none'
+        }}
+      >
         <canvas
           ref={canvasRef}
           className="block cursor-crosshair"
@@ -273,7 +297,9 @@ export default function HandwritingInput({
             height: 'auto',
             touchAction: 'none',
             userSelect: 'none',
-            WebkitUserSelect: 'none'
+            WebkitUserSelect: 'none',
+            WebkitTouchCallout: 'none',
+            msTouchAction: 'none'
           }}
           onMouseDown={startDrawing}
           onMouseMove={draw}
