@@ -25,8 +25,9 @@ export default function HandwritingInput({
   const [color, setColor] = useState('#ffffff');
   const [hasContent, setHasContent] = useState(false);
   const [showToolbar, setShowToolbar] = useState(true);
+  const lastPointRef = useRef<{ x: number; y: number } | null>(null);
 
-  // Canvas 초기화 (한 번만 실행)
+  // Canvas 초기화
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -37,17 +38,13 @@ export default function HandwritingInput({
     // 고해상도 지원
     const dpr = window.devicePixelRatio || 1;
     
-    // 실제 픽셀 크기 (고해상도)
-    const pixelWidth = width * dpr;
-    const pixelHeight = height * dpr;
-    
     // CSS 크기 설정
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
     
-    // 실제 Canvas 크기 설정
-    canvas.width = pixelWidth;
-    canvas.height = pixelHeight;
+    // 실제 Canvas 크기 설정 (고해상도)
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
     
     // 스케일 조정
     ctx.scale(dpr, dpr);
@@ -61,7 +58,6 @@ export default function HandwritingInput({
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
-        // 이미지를 Canvas 크기에 맞춰 그리기
         ctx.clearRect(0, 0, width, height);
         ctx.fillStyle = '#111111';
         ctx.fillRect(0, 0, width, height);
@@ -92,92 +88,121 @@ export default function HandwritingInput({
     }
   }, [width, height, initialImage]);
 
-  const getCoordinates = useCallback((e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+  // 좌표 가져오기 (마우스)
+  const getMousePos = useCallback((e: MouseEvent) => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
-
     const rect = canvas.getBoundingClientRect();
-
-    if ('touches' in e) {
-      // 터치 이벤트 (손가락 또는 펜슬)
-      // touches는 현재 터치 중인 손가락들, changedTouches는 방금 변경된 터치들
-      const touch = e.touches && e.touches.length > 0 
-        ? e.touches[0] 
-        : (e.changedTouches && e.changedTouches.length > 0 
-          ? e.changedTouches[0] 
-          : null);
-      
-      if (!touch) return null;
-      
-      // CSS 좌표를 Canvas 좌표로 변환
-      // ctx.scale(dpr, dpr)로 이미 스케일이 적용되어 있으므로 CSS 좌표 그대로 사용
-      const x = touch.clientX - rect.left;
-      const y = touch.clientY - rect.top;
-      
-      return { x, y };
-    } else {
-      // 마우스 이벤트
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      return { x, y };
-    }
+    return {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    };
   }, []);
 
-  const startDrawing = useCallback((e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
+  // 좌표 가져오기 (터치)
+  const getTouchPos = useCallback((e: TouchEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    const touch = e.touches[0] || e.changedTouches[0];
+    if (!touch) return null;
+    return {
+      x: touch.clientX - rect.left,
+      y: touch.clientY - rect.top,
+    };
+  }, []);
+
+  // 그리기 함수
+  const draw = useCallback((x: number, y: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
+    
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const coords = getCoordinates(e);
-    if (!coords) return;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lineWidth;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
 
+    if (lastPointRef.current) {
+      // 이전 점에서 현재 점까지 선 그리기
+      ctx.beginPath();
+      ctx.moveTo(lastPointRef.current.x, lastPointRef.current.y);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+    } else {
+      // 첫 점은 작은 원으로 표시
+      ctx.beginPath();
+      ctx.arc(x, y, lineWidth / 2, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+    }
+
+    lastPointRef.current = { x, y };
+  }, [color, lineWidth]);
+
+  // 마우스 이벤트 핸들러
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    const pos = getMousePos(e.nativeEvent);
+    if (!pos) return;
+    
     setIsDrawing(true);
     setHasContent(true);
+    lastPointRef.current = pos;
+    draw(pos.x, pos.y);
+  }, [getMousePos, draw]);
 
-    // 선 스타일 설정 (스케일이 이미 적용되어 있으므로 lineWidth는 그대로 사용)
-    ctx.strokeStyle = color;
-    ctx.lineWidth = lineWidth;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-
-    ctx.beginPath();
-    ctx.moveTo(coords.x, coords.y);
-  }, [getCoordinates, color, lineWidth]);
-
-  const draw = useCallback((e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return;
+    e.preventDefault();
+    const pos = getMousePos(e.nativeEvent);
+    if (!pos) return;
+    draw(pos.x, pos.y);
+  }, [isDrawing, getMousePos, draw]);
 
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const coords = getCoordinates(e);
-    if (!coords) return;
-
-    // 선 스타일 유지
-    ctx.strokeStyle = color;
-    ctx.lineWidth = lineWidth;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-
-    ctx.lineTo(coords.x, coords.y);
-    ctx.stroke();
-  }, [isDrawing, getCoordinates, color, lineWidth]);
-
-  const stopDrawing = useCallback(() => {
+  const handleMouseUp = useCallback(() => {
     setIsDrawing(false);
+    lastPointRef.current = null;
   }, []);
 
+  const handleMouseLeave = useCallback(() => {
+    setIsDrawing(false);
+    lastPointRef.current = null;
+  }, []);
+
+  // 터치 이벤트 핸들러
+  const handleTouchStart = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    const pos = getTouchPos(e.nativeEvent);
+    if (!pos) return;
+    
+    setIsDrawing(true);
+    setHasContent(true);
+    lastPointRef.current = pos;
+    draw(pos.x, pos.y);
+  }, [getTouchPos, draw]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isDrawing) return;
+    e.preventDefault();
+    const pos = getTouchPos(e.nativeEvent);
+    if (!pos) return;
+    draw(pos.x, pos.y);
+  }, [isDrawing, getTouchPos, draw]);
+
+  const handleTouchEnd = useCallback(() => {
+    setIsDrawing(false);
+    lastPointRef.current = null;
+  }, []);
+
+  const handleTouchCancel = useCallback(() => {
+    setIsDrawing(false);
+    lastPointRef.current = null;
+  }, []);
+
+  // 지우기
   const clearCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -185,59 +210,24 @@ export default function HandwritingInput({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // 배경 지우기
     ctx.fillStyle = '#111111';
     ctx.fillRect(0, 0, width, height);
     setHasContent(false);
+    lastPointRef.current = null;
   }, [width, height]);
 
+  // 저장
   const saveCanvas = useCallback(async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // 이미지를 Blob으로 변환
-    canvas.toBlob((blob) => {
-      if (!blob) return;
-      
-      // Blob을 Data URL로 변환
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const imageDataUrl = reader.result as string;
-        onSave(imageDataUrl);
-      };
-      reader.readAsDataURL(blob);
-    }, 'image/png', 0.9);
+    try {
+      const imageDataUrl = canvas.toDataURL('image/png', 0.9);
+      onSave(imageDataUrl);
+    } catch (error) {
+      console.error('이미지 저장 실패:', error);
+    }
   }, [onSave]);
-
-  // 터치 이벤트 핸들러 (손가락/펜슬 모두 지원)
-  const handleTouchStart = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const touch = e.touches[0];
-    if (touch) {
-      startDrawing(e);
-    }
-  }, [startDrawing]);
-
-  const handleTouchMove = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (isDrawing) {
-      draw(e);
-    }
-  }, [draw, isDrawing]);
-
-  const handleTouchEnd = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    stopDrawing();
-  }, [stopDrawing]);
-
-  const handleTouchCancel = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    stopDrawing();
-  }, [stopDrawing]);
 
   return (
     <div className={`relative ${className}`}>
@@ -266,6 +256,7 @@ export default function HandwritingInput({
             />
           </div>
           <button
+            type="button"
             onClick={clearCanvas}
             disabled={!hasContent}
             className="px-3 py-1 bg-[#1a1a1a] text-gray-300 rounded hover:bg-[#2a2a2a] transition-colors text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
@@ -273,6 +264,7 @@ export default function HandwritingInput({
             지우기
           </button>
           <button
+            type="button"
             onClick={saveCanvas}
             disabled={!hasContent}
             className="px-3 py-1 bg-white/10 hover:bg-white/20 text-white rounded transition-colors text-xs font-semibold border border-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -294,7 +286,7 @@ export default function HandwritingInput({
       >
         <canvas
           ref={canvasRef}
-          className="block cursor-crosshair"
+          className="block"
           style={{ 
             width: `${width}px`, 
             maxWidth: '100%', 
@@ -304,13 +296,13 @@ export default function HandwritingInput({
             WebkitUserSelect: 'none',
             WebkitTouchCallout: 'none',
             msTouchAction: 'none',
-            pointerEvents: 'auto',
+            cursor: 'crosshair',
             display: 'block'
           }}
-          onMouseDown={startDrawing}
-          onMouseMove={draw}
-          onMouseUp={stopDrawing}
-          onMouseLeave={stopDrawing}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseLeave}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
@@ -325,4 +317,3 @@ export default function HandwritingInput({
     </div>
   );
 }
-
